@@ -1,13 +1,12 @@
+#include "common.h"
 #include "Actions.h"
-#include <cstring>
 
-const char* version = "0.03";
-const char* nutVersion = "2.2.4 64-bit";
+#include <cstring>
 
 void Usage( void )
 {
-	std::cout << "NutCracker Squirrel script decompiler, ver " << version << std::endl;
-	std::cout << "for binary nut file version " << nutVersion << std::endl;
+	std::cout << "NutCracker Squirrel script decompiler, ver " << NUTCRACKER_VERSION << std::endl;
+	std::cout << "for binary nut file version " << TOSTRING(SQ_VERSION_MAJOR) "." TOSTRING(SQ_VERSION_MINOR) ".x" << std::endl;
 	std::cout << std::endl;
 	std::cout << "  Usage:" << std::endl;
 	std::cout << "    nutcracker [options] <file to decompile>" << std::endl;

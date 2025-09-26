@@ -1,17 +1,14 @@
-
 #include "Statements.h"
-// ********************************************************************************************************
-// *** Instructions block postprocessor *******************************************************************
-// ********************************************************************************************************
-StatementPtr BlockStatement::Postprocess( void )
+
+StatementPtr BlockStatement::Postprocess()
 {
-	for( vector< StatementPtr >::iterator i = m_Statements.begin(); i != m_Statements.end(); )
+	for(std::vector<StatementPtr>::iterator i = m_Statements.begin(); i != m_Statements.end();)
 	{
 		*i = (*i)->Postprocess();
 
 		if ((*i)->GetType() == Stat_While && i != m_Statements.begin())
 		{
-			shared_ptr<WhileStatement> whileStatement = static_pointer_cast<WhileStatement>(*i);
+			std::shared_ptr<WhileStatement> whileStatement = std::static_pointer_cast<WhileStatement>(*i);
 			StatementPtr forStatement = whileStatement->TryGenerateForStatement(i[-1]);
 
 			if (forStatement)

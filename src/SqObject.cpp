@@ -1,13 +1,14 @@
-
 #include "SqObject.h"
+
 #include <string>
-using namespace std;
+
+// using namespace std;
 
 
 // ***********************************************************************************************************************
 void PrintEscapedString( std::ostream& out, const std::string& str )
 {
-	for( basic_string <char>::const_iterator i = str.begin(); i != str.end(); ++i )
+	for( std::basic_string<char>::const_iterator i = str.begin(); i != str.end(); ++i )
 	{
 		switch(*i)
 		{
@@ -29,7 +30,7 @@ void PrintEscapedString( std::ostream& out, const std::string& str )
 // ***********************************************************************************************************************
 void SqObject::Load( BinaryReader& reader )
 {
-	int type = reader.ReadInt32();
+	int type = reader.Read<int32_t>();
 	switch(type)
 	{
 		default:
@@ -45,11 +46,11 @@ void SqObject::Load( BinaryReader& reader )
 			break;
 
 		case TypeInteger:
-			m_integer = reader.ReadUInt32();
+			m_integer = reader.Read<int32_t>();
 			break;
 
 		case TypeFloat:
-			m_float = reader.ReadFloat32();
+			m_float = reader.Read<float>();
 			break;
 	}
 

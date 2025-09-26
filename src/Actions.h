@@ -1,7 +1,6 @@
 #pragma once
 
 #include "NutScript.h"
-#include <iostream>
 #include <fstream>
 
 int Compare(const char* file1, const char* file2, bool general);

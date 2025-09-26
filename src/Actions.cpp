@@ -73,14 +73,15 @@ int Decompile(const char* file, const char* debugFunction, std::ostream& out)
 				return 0;
 			}
 		}
-
-		script.GetMain().GenerateBodySource(0, out);
+		const auto& main = script.GetMain();
+		main.GenerateBodySource(0, out);
 	}
 	catch (std::exception& ex)
 	{
 		out << "Error: " << ex.what() << std::endl;
 		return -1;
 	}
+
 
 	return 0;
 }

@@ -1,10 +1,10 @@
-
 #pragma once
 
 #include <memory>
 #include <vector>
 #include <ostream>
 
+#include "common.h"
 #include "Expressions.h"
 #include "BlockState.h"
 #include "Formatters.h"
@@ -37,20 +37,20 @@ enum StatementType
 
 
 // *******************************************************************************************
-class Statement : public enable_shared_from_this<Statement>
+class Statement : public std::enable_shared_from_this<Statement>
 {
 public:
 	virtual int GetType( void ) const = 0;
 	virtual void GenerateCode( std::ostream& out, int indent ) const = 0;
 
-	virtual shared_ptr<Statement> Postprocess( void )
+	virtual std::shared_ptr<Statement> Postprocess( void )
 	{
 		return shared_from_this();
 	}
 
-	bool IsEmpty( void ) const			{ return GetType() == Stat_Empty;		}
-	bool IsExpression( void ) const		{ return GetType() == Stat_Expression;	}
-	bool IsBlock( void ) const			{ return GetType() == Stat_Block;		}
+	bool IsEmpty( void ) const		{ return GetType() == Stat_Empty;		}
+	bool IsExpression( void ) const	{ return GetType() == Stat_Expression;	}
+	bool IsBlock( void ) const		{ return GetType() == Stat_Block;		}
 
 	void GenerateCodeInBlock( std::ostream& out, int indent ) const
 	{
@@ -67,7 +67,7 @@ public:
 	}
 };
 
-typedef shared_ptr<Statement> StatementPtr;
+typedef std::shared_ptr<Statement> StatementPtr;
 
 
 // *******************************************************************************************
@@ -137,7 +137,7 @@ public:
 
 	void Clear( void )
 	{
-		m_Expression = shared_ptr<Expression>();
+		m_Expression = std::shared_ptr<Expression>();
 	}
 
 	bool Equals( ExpressionPtr right ) const
@@ -151,7 +151,7 @@ public:
 	}
 };
 
-typedef shared_ptr<ExpressionStatement> ExpressionStatementPtr;
+typedef std::shared_ptr<ExpressionStatement> ExpressionStatementPtr;
 
 
 // *******************************************************************************************
@@ -190,7 +190,7 @@ public:
 		StatementPtr prevStatement;
 		bool pendingSpace = false;
 
-		for( vector< StatementPtr >::const_iterator i = m_Statements.begin(); i != m_Statements.end(); ++i )
+		for(std::vector< StatementPtr >::const_iterator i = m_Statements.begin(); i != m_Statements.end(); ++i)
 		{
 			StatementPtr statement = *i;
 			
@@ -228,7 +228,7 @@ public:
 	virtual StatementPtr Postprocess( void );
 };
 
-typedef shared_ptr<BlockStatement> BlockStatementPtr;
+typedef std::shared_ptr<BlockStatement> BlockStatementPtr;
 
 
 // *******************************************************************************************
@@ -310,12 +310,12 @@ class LocalVarInitStatement : public Statement
 private:
 	std::string m_Name;
 	ExpressionPtr m_Initialization;
-	int64_t m_StackAddress;
-	int64_t m_StartAddress;
-	int64_t m_EndAddress;
+	WordT m_StackAddress;
+	WordT m_StartAddress;
+	WordT m_EndAddress;
 
 public:
-	explicit LocalVarInitStatement( const std::string& name, int64_t stackAddress, int64_t startAddress, int64_t endAddress, ExpressionPtr init = ExpressionPtr() )
+	explicit LocalVarInitStatement( const std::string& name, WordT stackAddress, WordT startAddress, WordT endAddress, ExpressionPtr init = ExpressionPtr() )
 	{
 		m_Name = name;
 		m_StackAddress = stackAddress;
@@ -344,9 +344,9 @@ public:
 		return m_Name;
 	}
 
-	int64_t GetStackAddress( void ) const		{ return m_StackAddress;	}
-	int64_t GetStartAddress( void ) const		{ return m_StartAddress;	}
-	int64_t GetEndAddress( void ) const			{ return m_EndAddress;		}
+	WordT GetStackAddress( void ) const		{ return m_StackAddress;	}
+	WordT GetStartAddress( void ) const		{ return m_StartAddress;	}
+	WordT GetEndAddress( void ) const			{ return m_EndAddress;		}
 };
 
 // *******************************************************************************************
@@ -552,7 +552,7 @@ public:
 	int GetLoopEndAddress( void ) const			{ return m_LoopEndAddress;		}
 };
 
-typedef shared_ptr<LoopBaseStatement> LoopBaseStatementPtr;
+typedef std::shared_ptr<LoopBaseStatement> LoopBaseStatementPtr;
 
 
 // *******************************************************************************************
@@ -659,7 +659,7 @@ public:
 		if (m_Block->GetType() != Stat_Block)
 			return StatementPtr();
 
-		shared_ptr<BlockStatement> block = static_pointer_cast<BlockStatement>(m_Block);
+		std::shared_ptr<BlockStatement> block = static_pointer_cast<BlockStatement>(m_Block);
 		if (block->Statements().size() < 1 || block->Statements().back()->GetType() != Stat_Expression)
 			return StatementPtr();
 
@@ -684,7 +684,7 @@ public:
 
 		if (prevStatement->GetType() == Stat_LocalVar)
 		{
-			shared_ptr<LocalVarInitStatement> localVar = static_pointer_cast<LocalVarInitStatement>(prevStatement);
+			std::shared_ptr<LocalVarInitStatement> localVar = static_pointer_cast<LocalVarInitStatement>(prevStatement);
 			if (localVar->GetEndAddress() < m_LoopStartAddress || localVar->GetEndAddress() >= m_LoopEndAddress)
 				return  StatementPtr();
 		}

@@ -1,15 +1,14 @@
-
 #pragma once
 
-#include <iostream>
 #include <sstream>
 #include <memory>
 #include <string>
 
+#include "common.h"
 #include "SqObject.h"
 #include "Formatters.h"
 
-using namespace std;
+// using namespace std;
 
 // ************************************************************************************************************************************
 enum ExpressionType
@@ -41,7 +40,7 @@ public:
 	bool IsVariable( void ) const		{ return GetType() == Exp_Variable || GetType() == Exp_LocalVariable;	}
 };
 
-typedef shared_ptr<Expression> ExpressionPtr;
+typedef std::shared_ptr<Expression> ExpressionPtr;
 
 struct expression_out
 {
@@ -174,7 +173,7 @@ public:
 		m_text.reserve(str.size() + 2);
 
 		m_text += '\"';
-		for( basic_string <char>::const_iterator i = str.begin(); i != str.end(); ++i)
+		for(std::basic_string<char>::const_iterator i = str.begin(); i != str.end(); ++i)
 		{
 			switch(*i)
 			{
@@ -286,17 +285,17 @@ public:
 		return m_text.substr(1, m_text.size() - 2);
 	}
 
-	static shared_ptr<ConstantExpression> AsLabelExpression( ExpressionPtr exp )
+	static std::shared_ptr<ConstantExpression> AsLabelExpression( ExpressionPtr exp )
 	{
 		if (exp->GetType() != Exp_Constant)
-			return shared_ptr<ConstantExpression>();
+			return std::shared_ptr<ConstantExpression>();
 
-		shared_ptr<ConstantExpression> constExpr = static_pointer_cast<ConstantExpression>(exp);
+		std::shared_ptr<ConstantExpression> constExpr = static_pointer_cast<ConstantExpression>(exp);
 		
 		if (constExpr->IsLabel())
 			return constExpr;
 		else
-			return shared_ptr<ConstantExpression>();
+			return std::shared_ptr<ConstantExpression>();
 	}
 };
 
@@ -771,7 +770,7 @@ public:
 			m_obj->IsOperator() &&
 			static_pointer_cast<OperatorExpression>(m_obj)->GetOperatorPriority() < this->GetOperatorPriority();
 
-		shared_ptr<ConstantExpression> labelIndexer = ConstantExpression::AsLabelExpression(m_indexer);
+		std::shared_ptr<ConstantExpression> labelIndexer = ConstantExpression::AsLabelExpression(m_indexer);
 		if (labelIndexer)
 		{
 			// Indexer is a valid string label - we can change array indexing to member access (a["b"] -> a.b)
@@ -941,7 +940,7 @@ public:
 		}
 
 		out << "{" << std::endl;
-		for( vector< std::pair<ExpressionPtr, ExpressionPtr> >::const_iterator i = m_Elements.begin(); i != m_Elements.end(); ++i)
+		for( std::vector< std::pair<ExpressionPtr, ExpressionPtr> >::const_iterator i = m_Elements.begin(); i != m_Elements.end(); ++i)
 		{
 			out << ::indent(n + 1);
 			GenerateElementCode(i->first, i->second, (*i != m_Elements.back()) ? ',' : 0, out, n + 1);
@@ -955,7 +954,7 @@ public:
 	virtual void GenerateAttributesCode( std::ostream& out, int n ) const
 	{
 		out << "</ ";
-		for( vector< std::pair<ExpressionPtr, ExpressionPtr> >::const_iterator i = m_Elements.begin(); i != m_Elements.end(); ++i)
+		for( std::vector< std::pair<ExpressionPtr, ExpressionPtr> >::const_iterator i = m_Elements.begin(); i != m_Elements.end(); ++i)
 		{
 			GenerateElementCode(i->first, i->second, (*i != m_Elements.back()) ? ',' : 0, out, n);
 		}
@@ -997,7 +996,7 @@ public:
 		}
 
 		out << "[" << std::endl;
-		for( vector< ExpressionPtr >::const_iterator i = m_Elements.begin(); i != m_Elements.end(); ++i)
+		for( std::vector< ExpressionPtr >::const_iterator i = m_Elements.begin(); i != m_Elements.end(); ++i)
 		{
 			out << ::indent(n + 1);
 			(*i)->GenerateCode(out, n + 1);
@@ -1075,7 +1074,7 @@ public:
 
 		out << std::endl;
 		out << ::indent(n) << '{' << std::endl;
-		for( vector< ClassElement >::const_iterator i = m_Elements.begin(); i != m_Elements.end(); ++i)
+		for( std::vector< ClassElement >::const_iterator i = m_Elements.begin(); i != m_Elements.end(); ++i)
 		{
 			if (i->attributes && i->attributes->GetType() == Exp_NewTableExpression)
 			{
@@ -1117,14 +1116,14 @@ inline void TableBaseExpression::GenerateElementCode( ExpressionPtr key, Express
 		// Member function or nested class - find its name
 		std::string name;
 			
-		shared_ptr<ConstantExpression> labelExp = ConstantExpression::AsLabelExpression(key);
+		std::shared_ptr<ConstantExpression> labelExp = ConstantExpression::AsLabelExpression(key);
 		if (labelExp)
 		{
 			name = labelExp->GetLabel();
 		}
 		else if (key->GetType() == Exp_Operator && static_pointer_cast<OperatorExpression>(key)->GetOperatorType() == OperatorExpression::OPER_ARRAYIND)
 		{
-			shared_ptr<ArrayIndexingExpression> derefExp = static_pointer_cast<ArrayIndexingExpression>(key);
+			std::shared_ptr<ArrayIndexingExpression> derefExp = static_pointer_cast<ArrayIndexingExpression>(key);
 			if (derefExp->IsSimpleMemberDeref())
 			{
 				if (value->GetType() == Exp_Function)
@@ -1138,12 +1137,12 @@ inline void TableBaseExpression::GenerateElementCode( ExpressionPtr key, Express
 		{
 			if (value->GetType() == Exp_Function)
 			{
-				shared_ptr<FunctionExpression> func = static_pointer_cast<FunctionExpression>(value);
+				std::shared_ptr<FunctionExpression> func = static_pointer_cast<FunctionExpression>(value);
 				func->SetName(name);
 			}
 			else
 			{
-				shared_ptr<NewClassExpression> newClass = static_pointer_cast<NewClassExpression>(value);
+				std::shared_ptr<NewClassExpression> newClass = static_pointer_cast<NewClassExpression>(value);
 				newClass->SetName(name);
 			}
 
@@ -1153,7 +1152,7 @@ inline void TableBaseExpression::GenerateElementCode( ExpressionPtr key, Express
 		}
 	}
 
-	shared_ptr<ConstantExpression> labelExp = ConstantExpression::AsLabelExpression(key);
+	std::shared_ptr<ConstantExpression> labelExp = ConstantExpression::AsLabelExpression(key);
 	if (labelExp)
 	{
 		out << labelExp->GetLabel();

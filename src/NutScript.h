@@ -1,15 +1,12 @@
-
 #pragma once
 
 #include <istream>
 #include <vector>
 #include <memory>
-#include <stdint.h>
 
+#include "common.h"
 #include "BinaryReader.h"
 #include "SqObject.h"
-
-extern bool g_DebugMode;
 
 class VMState;
 
@@ -40,23 +37,23 @@ private:
 	struct LocalVarInfo
 	{
 		std::string name;
-		int64_t start_op;
-		int64_t end_op;
-		int64_t pos;
+		WordT start_op;
+		WordT end_op;
+		WordT pos;
 		bool foreachLoopState;
 	};
 
 	struct LineInfo
 	{
-		int64_t line;
-		int64_t op;
+		WordT line;
+		WordT op;
 	};
 
 	int m_FunctionIndex;
 	std::string m_SourceName;
 	std::string m_Name;
 
-	int64_t m_StackSize;
+	WordT m_StackSize;
 	bool m_IsGenerator;
 	bool m_GotVarParams;
 
@@ -65,7 +62,9 @@ private:
 	std::vector<OuterValueInfo> m_OuterValues;
 	std::vector<LocalVarInfo> m_Locals;
 	std::vector<LineInfo> m_LineInfos;
-	std::vector<int> m_DefaultParams;
+	#if SQ_VERSION_MAJOR > 2 || (SQ_VERSION_MAJOR == 2 && SQ_VERSION_MINOR > 2)
+		std::vector<int> m_DefaultParams;
+	#endif
 	std::vector<Instruction> m_Instructions;
 	std::vector<NutFunction> m_Functions;
 
@@ -111,7 +110,6 @@ public:
 class NutScript
 {
 	NutFunction m_main;
-	
 
 public:
 	void LoadFromFile( const char* fileName );

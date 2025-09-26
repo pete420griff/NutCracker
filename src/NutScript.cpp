@@ -4,21 +4,16 @@
 #include <fstream>
 #include <string>
 
-#include <stdint.h>
-
+#include "common.h"
 #include "Errors.h"
 #include "NutScript.h"
 #include "BinaryReader.h"
 
-using namespace std;
-
-bool g_DebugMode = false;
-
 // ***************************************************************************************************************
 const NutFunction* NutFunction::FindFunction( const std::string& name ) const
 {
-	string localName, subName;
-	unsigned int p = name.find("::");
+	std::string localName, subName;
+	size_t p = name.find("::");
 
 	if (p == std::string::npos)
 	{
@@ -78,88 +73,91 @@ void NutFunction::Load( BinaryReader& reader )
 	reader.ReadSQStringObject(m_Name);
 
 	reader.ConfirmOnPart();
-	
-	int64_t nLiterals = reader.ReadInt64();
-	int64_t nParameters = reader.ReadInt64();
-	int64_t nOuterValues = reader.ReadInt64();
-	int64_t nLocalVarInfos = reader.ReadInt64();
-	int64_t nLineInfos = reader.ReadInt64();
-	int64_t nDefaultParams = reader.ReadInt64();
-	int64_t nInstructions = reader.ReadInt64();
-	int64_t nFunctions = reader.ReadInt64();
-	
-	reader.ConfirmOnPart();
 
-	m_Literals.resize((size_t) nLiterals);
-	for(int i = 0; i < nLiterals; ++i)
+	WordT nLiterals = reader.ReadWord();
+
+	m_Literals.resize(static_cast<size_t>(nLiterals));
+	for(auto i = 0; i < nLiterals; ++i)
 		m_Literals[i].Load(reader);
 
 	reader.ConfirmOnPart();
-	
-	m_Parameters.resize((size_t) nParameters);
-	for(int i = 0; i < nParameters; ++i)
+
+	WordT nParameters = reader.ReadWord();
+
+	m_Parameters.resize(static_cast<size_t>(nParameters));
+	for(auto i = 0; i < nParameters; ++i)
 		reader.ReadSQStringObject(m_Parameters[i]);
 
 	reader.ConfirmOnPart();
 
-	m_OuterValues.resize((size_t) nOuterValues);
-	for(int i = 0; i < nOuterValues; ++i)
+	WordT nOuterValues = reader.ReadWord();
+
+	m_OuterValues.resize(static_cast<size_t>(nOuterValues));
+	for(auto i = 0; i < nOuterValues; ++i)
 	{
-		m_OuterValues[i].type = reader.ReadInt32();
+		m_OuterValues[i].type = reader.Read<uint32_t>();
 		m_OuterValues[i].src.Load(reader);
 		m_OuterValues[i].name.Load(reader);
 	}
 
 	reader.ConfirmOnPart();
 
-	m_Locals.resize((size_t) nLocalVarInfos);
-	for(int i = 0; i < nLocalVarInfos; ++i)
+	WordT nLocalVarInfos = reader.ReadWord();
+
+	m_Locals.resize(static_cast<size_t>(nLocalVarInfos));
+	for(auto i = 0; i < nLocalVarInfos; ++i)
 	{
 		reader.ReadSQStringObject(m_Locals[i].name);
-		m_Locals[i].pos = reader.ReadInt64();
-		m_Locals[i].start_op = reader.ReadInt64();
-		m_Locals[i].end_op = reader.ReadInt64();
+		m_Locals[i].pos = reader.ReadWord();
+		m_Locals[i].start_op = reader.ReadWord();
+		m_Locals[i].end_op = reader.ReadWord();
 		m_Locals[i].foreachLoopState = false;
 	}
 
 	reader.ConfirmOnPart();
 
-	m_LineInfos.resize((size_t) nLineInfos);
-	reader.Read(&(m_LineInfos.front()), nLineInfos * sizeof(LineInfo));
+	WordT nLineInfos = reader.ReadWord();
+
+	m_LineInfos.resize(static_cast<size_t>(nLineInfos));
+	reader.Read(&(m_LineInfos.front()), static_cast<UWordT>((nLineInfos * sizeof(LineInfo))));
+
+	// reader.ConfirmOnPart();
+	// WordT nDefaultParams = reader.ReadWord();
+	// m_DefaultParams.resize(static_cast<size_t>(nDefaultParams));
+	// if (nDefaultParams)
+	// {
+	// 	reader.Read(&(m_DefaultParams.at(0)), static_cast<UWordT>(nDefaultParams * sizeof(int)));
+	// }
 
 	reader.ConfirmOnPart();
-	
-	m_DefaultParams.resize((size_t) nDefaultParams);
-	if (nDefaultParams)
-	{
-		reader.Read(&(m_DefaultParams.at(0)), nDefaultParams * sizeof(int));
-	}
 
-	reader.ConfirmOnPart();
+	WordT nInstructions = reader.ReadWord();
 
-	m_Instructions.resize((size_t) nInstructions);
+	m_Instructions.resize(static_cast<size_t>(nInstructions));
 	if (nInstructions)
 	{
-		reader.Read(&(m_Instructions.at(0)), nInstructions * sizeof(Instruction));
+		reader.Read(&(m_Instructions.at(0)), static_cast<UWordT>(nInstructions * sizeof(Instruction)));
 	}
 
 	reader.ConfirmOnPart();
-	
-	m_Functions.resize((size_t) nFunctions);
-	for(int i = 0; i < nFunctions; ++i)
+
+	WordT nFunctions = reader.ReadWord();
+
+	m_Functions.resize(static_cast<size_t>(nFunctions));
+	for(auto i = 0; i < nFunctions; ++i)
 	{
 		m_Functions[i].Load(reader);
 		m_Functions[i].SetIndex(i);
 	}
 
-	m_StackSize = reader.ReadInt64();
-	m_IsGenerator = reader.ReadBool();
-	m_GotVarParams = reader.ReadBool();
+	m_StackSize = reader.ReadWord();
+	m_IsGenerator = reader.Read<bool>();
+	m_GotVarParams = reader.Read<bool>();
 
 	// Preprocess local variables
 	int f = 0;
 
-	for(vector<LocalVarInfo>::iterator i = m_Locals.begin(); i != m_Locals.end(); ++i)
+	for(std::vector<LocalVarInfo>::iterator i = m_Locals.begin(); i != m_Locals.end(); ++i)
 	{
 		if (i->name == "@ITERATOR@")
 		{
@@ -207,18 +205,26 @@ void NutScript::LoadFromStream( std::istream& in )
 	BinaryReader reader(in);
 
 	// Magic
-	if (reader.ReadUInt16() != 0xFAFA) 
+	if (reader.Read<uint16_t>() != 0xFAFA) 
 		throw BadFormatError();
 
-	if (reader.ReadInt64() != 'SQIR') 
+	if (reader.ReadWord() != 'SQIR')
 		throw BadFormatError();
 	
-	if (reader.ReadInt64() != sizeof(char))
+	if (reader.ReadWord() != sizeof(char))
 		throw Error("NUT file compiled for different size of char that expected.");
+
+	#if SQ_VERSION_MAJOR >= 3
+		if (reader.ReadWord() != sizeof(int))
+			throw Error("NUT file compiled for different size of int than expected.");
+
+		if (reader.ReadWord() != sizeof(float))
+			throw Error("NUT file compiled for different size of float than expected.");
+	#endif
 
 	m_main.Load(reader);
 
-	if (reader.ReadUInt64() != 'TAIL') 
+	if (reader.ReadUWord() != 'TAIL')
 		throw BadFormatError();
 }
 
@@ -227,12 +233,14 @@ bool Eq( const NutFunction::Instruction& a, const NutFunction::Instruction& b )
 {
 	if (a.op != b.op)
 		return false;
-
+	
+	#if SQ_VERSION_MAJOR > 2 || (SQ_VERSION_MAJOR == 2 && SQ_VERSION_MINOR > 2)
 	if (a.op == 3)	// OP_LOADFLOAT
 	{
 		return a.arg0 == b.arg0 && (std::abs(a.arg1_float - b.arg1_float) < 0.00001) && a.arg2 == b.arg2 && a.arg3 == b.arg3;
 	}
 	else
+	#endif
 	{
 		return a.arg0 == b.arg0 && a.arg1 == b.arg1 && a.arg2 == b.arg2 && a.arg3 == b.arg3;
 	}
@@ -331,7 +339,7 @@ bool NutFunction::DoCompare( const NutFunction& other, const std::string parentN
 			{
 				out << "    - instruction missing in second @ [" << i  << "]<->[" << j << "]:" << std::endl;
 				out << "          ";
-				PrintOpcode(out, i, a);
+				PrintOpcode(out, static_cast<int>(i), a);
 				out << std::endl;
 				--j;
 			}
@@ -339,7 +347,7 @@ bool NutFunction::DoCompare( const NutFunction& other, const std::string parentN
 			{
 				out << "    - instruction missing in first @ [" << i  << "]<->[" << j << "]:" << std::endl;
 				out << "          ";
-				other.PrintOpcode(out, i, b);
+				other.PrintOpcode(out, static_cast<int>(i), b);
 				out << std::endl;
 				--i;
 			}
@@ -348,11 +356,11 @@ bool NutFunction::DoCompare( const NutFunction& other, const std::string parentN
 				out << "    - different instructions @ [" << i  << "]<->[" << j << "]:" << std::endl;
 				
 				out << "          ";
-				PrintOpcode(out, i, a);
+				PrintOpcode(out, static_cast<int>(i), a);
 				out << std::endl;
 
 				out << "          ";
-				other.PrintOpcode(out, i, b);
+				other.PrintOpcode(out, static_cast<int>(i), b);
 				out << std::endl;
 
 				if (a.op != b.op)

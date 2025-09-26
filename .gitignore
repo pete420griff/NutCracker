@@ -1,4 +1,6 @@
 /.vscode/
+/.vs/
+/out/
 /build/
 /CMakeFiles/
 cmake_install.cmake

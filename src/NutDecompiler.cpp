@@ -1,11 +1,10 @@
-
-#include <iostream>
 #include <sstream>
 #include <cstring>
 #include <iomanip>
 #include <cassert>
 #include <algorithm>
 
+#include "common.h"
 #include "Errors.h"
 #include "NutScript.h"
 #include "Formatters.h"
@@ -19,7 +18,9 @@ enum Opcode
 	OP_LINE = 0,
 	OP_LOAD,
 	OP_LOADINT,
-	OP_LOADFLOAT,
+	#if SQ_VERSION_MAJOR > 2 || (SQ_VERSION_MAJOR == 2 && SQ_VERSION_MINOR > 2)
+		OP_LOADFLOAT,
+	#endif
 	OP_DLOAD,
 	OP_TAILCALL,
 	OP_CALL,
@@ -68,7 +69,9 @@ enum Opcode
 	OP_YIELD,
 	OP_RESUME,
 	OP_FOREACH,
-	OP_POSTFOREACH,
+	#if SQ_VERSION_MAJOR > 2 || (SQ_VERSION_MAJOR == 2 && SQ_VERSION_MINOR > 2)
+		OP_POSTFOREACH,
+	#endif
 	OP_DELEGATE,
 	OP_CLONE,
 	OP_TYPEOF,
@@ -102,7 +105,9 @@ const char* OpcodeNames[] =
 	"OP_LINE",
 	"OP_LOAD",
 	"OP_LOADINT",
-	"OP_LOADFLOAT",
+	#if SQ_VERSION_MAJOR > 2 || (SQ_VERSION_MAJOR == 2 && SQ_VERSION_MINOR > 2)
+		"OP_LOADFLOAT",
+	#endif
 	"OP_DLOAD",
 	"OP_TAILCALL",
 	"OP_CALL",
@@ -151,7 +156,9 @@ const char* OpcodeNames[] =
 	"OP_YIELD",
 	"OP_RESUME",
 	"OP_FOREACH",
-	"OP_POSTFOREACH",
+	#if SQ_VERSION_MAJOR > 2 || (SQ_VERSION_MAJOR == 2 && SQ_VERSION_MINOR > 2)
+		"OP_POSTFOREACH",
+	#endif
 	"OP_DELEGATE",
 	"OP_CLONE",
 	"OP_TYPEOF",
@@ -206,7 +213,7 @@ public:
 		std::vector<StatementPtr> pendingStatements;
 	};
 
-	typedef shared_ptr< std::vector<StackElement> > StackCopyPtr;
+	typedef std::shared_ptr< std::vector<StackElement> > StackCopyPtr;
 
 private:
 	const NutFunction& m_Parent;
@@ -219,17 +226,17 @@ private:
 public:
 	BlockState m_BlockState;
 
-	VMState( const NutFunction& parent, int64_t stackSize )
+	VMState( const NutFunction& parent, WordT stackSize )
 	: m_Parent(parent)
 	{
 		m_Stack.resize((size_t) stackSize);
 		m_IP = 0;
 		m_Block = BlockStatementPtr(new BlockStatement);
 		m_BlockState.blockStart = -1;
-		m_BlockState.blockEnd = parent.m_Instructions.size() + 2;
+		m_BlockState.blockEnd = static_cast<int>(parent.m_Instructions.size() + 2);
 
 		// Find all JNZ instructions in code with beck jump - this will be oure do..while loops
-		for( int i = 0; i < (int)parent.m_Instructions.size(); ++i)
+		for(int i = 0; i < static_cast<int>(parent.m_Instructions.size()); ++i)
 			if (parent.m_Instructions[i].op == OP_JNZ && parent.m_Instructions[i].arg1 < 0)
 				m_JNZInstructions.push_back(i);
 	}
@@ -239,7 +246,7 @@ public:
 		// Find last JNZ instruction that points at specified address (we need last to find
 		// outermost do..while block)
 
-		for( int i = (int)m_JNZInstructions.size() - 1; i >= 0; --i)
+		for(int i = static_cast<int>(m_JNZInstructions.size() - 1); i >= 0; --i)
 			if ((m_JNZInstructions[i] + 1 + m_Parent.m_Instructions[m_JNZInstructions[i]].arg1) == address)
 			{
 				int pos = m_JNZInstructions[i];
@@ -253,7 +260,7 @@ public:
 	void NextInstruction( void )
 	{
 		// Search for local variables that expires at previously finished instruction
-		for( vector<NutFunction::LocalVarInfo>::const_iterator i = m_Parent.m_Locals.begin(); i != m_Parent.m_Locals.end(); ++i)
+		for( std::vector<NutFunction::LocalVarInfo>::const_iterator i = m_Parent.m_Locals.begin(); i != m_Parent.m_Locals.end(); ++i)
 		{		
 			if (i->end_op == (m_IP - 1))
 			{
@@ -268,7 +275,7 @@ public:
 
 	bool EndOfInstructions( void ) const
 	{
-		return m_IP >= (int)m_Parent.m_Instructions.size();
+		return m_IP >= static_cast<int>(m_Parent.m_Instructions.size());
 	}
 
 	BlockStatementPtr PushBlock( void )
@@ -304,7 +311,7 @@ public:
 			}
 			else if (usedExpression->GetType() == Exp_Operator && static_pointer_cast<OperatorExpression>(usedExpression)->GetOperatorType() == '?:')
 			{
-				shared_ptr<ConditionOperatorExpression> conditionExp = static_pointer_cast<ConditionOperatorExpression>(usedExpression);
+				std::shared_ptr<ConditionOperatorExpression> conditionExp = static_pointer_cast<ConditionOperatorExpression>(usedExpression);
 				if (pendingStatement->Equals(conditionExp->GetConditionExp()) ||
 					pendingStatement->Equals(conditionExp->GetTrueExp()) ||
 					pendingStatement->Equals(conditionExp->GetFalseExp()))
@@ -315,7 +322,7 @@ public:
 		}
 		else if (stat->GetType() == Stat_If)
 		{
-			shared_ptr<IfStatement> ifStatement = static_pointer_cast<IfStatement>(stat);
+			std::shared_ptr<IfStatement> ifStatement = static_pointer_cast<IfStatement>(stat);
 				ifStatement->Cancel();
 		}
 	}
@@ -336,7 +343,7 @@ public:
 		else if (!m_Stack[pos].pendingStatements.empty())
 		{
 			// Pending expressions deletion
-			for( vector<StatementPtr>::iterator i = m_Stack[pos].pendingStatements.begin(); i != m_Stack[pos].pendingStatements.end(); ++i)
+			for( std::vector<StatementPtr>::iterator i = m_Stack[pos].pendingStatements.begin(); i != m_Stack[pos].pendingStatements.end(); ++i)
 				ClearPendingStatement(*i, m_Stack[pos].expression);
 
 			m_Stack[pos].pendingStatements.clear();
@@ -354,7 +361,7 @@ public:
 			exp = ExpressionPtr();
 
 		// Check for local initialization
-		for( vector<NutFunction::LocalVarInfo>::const_iterator i = m_Parent.m_Locals.begin(); i != m_Parent.m_Locals.end(); ++i)
+		for( std::vector<NutFunction::LocalVarInfo>::const_iterator i = m_Parent.m_Locals.begin(); i != m_Parent.m_Locals.end(); ++i)
 		{
 			// Variable stack address
 			if (i->pos != pos) continue;
@@ -433,7 +440,7 @@ public:
 	}
 
 
-	ExpressionPtr& AtStack( int64_t pos )
+	ExpressionPtr& AtStack( WordT pos )
 	{
 		if (pos < 0 || pos >= m_Stack.size())
 			throw Error("Accessing non valid stack position.");
@@ -476,7 +483,7 @@ public:
 
 				if (InitVar(pos, mergedVar))
 				{
-					for( vector<StatementPtr>::iterator i = pendingStatements.begin(); i != pendingStatements.end(); ++i)
+					for( std::vector<StatementPtr>::iterator i = pendingStatements.begin(); i != pendingStatements.end(); ++i)
 						ClearPendingStatement(*i, mergedVar);
 				}
 				else
@@ -546,7 +553,7 @@ public:
 		}
 		
 		std::vector< std::string > defaults;
-		for( vector<ExpressionPtr>::const_iterator i = m_Defaults.begin(); i != m_Defaults.end(); ++i)
+		for( std::vector<ExpressionPtr>::const_iterator i = m_Defaults.begin(); i != m_Defaults.end(); ++i)
 		{
 			std::ostringstream defaultBuffer;
 			(*i)->GenerateCode(defaultBuffer, n + 1);
@@ -590,9 +597,11 @@ void NutFunction::DecompileStatement( VMState& state ) const
 			state.SetVar(arg0, ExpressionPtr(new ConstantExpression(static_cast<unsigned int>(arg1))));
 			break;
 
-		case OP_LOADFLOAT:
-			state.SetVar(arg0, ExpressionPtr(new ConstantExpression( *((float*)&arg1) )));
-			break;
+		#if SQ_VERSION_MAJOR > 2 || (SQ_VERSION_MAJOR == 2 && SQ_VERSION_MINOR > 2)
+			case OP_LOADFLOAT:
+				state.SetVar(arg0, ExpressionPtr(new ConstantExpression( *((float*)&arg1) )));
+				break;
+		#endif
 
 		case OP_DLOAD:
 			state.SetVar(arg0, ExpressionPtr(new ConstantExpression(m_Literals[arg1])));
@@ -602,7 +611,7 @@ void NutFunction::DecompileStatement( VMState& state ) const
 		case OP_TAILCALL:
 		case OP_CALL:
 			{
-				shared_ptr<FunctionCallExpression> exp = shared_ptr<FunctionCallExpression>(new FunctionCallExpression(state.GetVar(arg1)));
+				std::shared_ptr<FunctionCallExpression> exp = std::shared_ptr<FunctionCallExpression>(new FunctionCallExpression(state.GetVar(arg1)));
 				for(int i = 1; i < arg3; ++i)
 					exp->AddArgument(state.GetVar(arg2 + i));
 
@@ -754,7 +763,7 @@ void NutFunction::DecompileStatement( VMState& state ) const
 				else
 				{
 					ExpressionPtr appendFunctionExp = ExpressionPtr(new ArrayIndexingExpression(arrayExp, ExpressionPtr(new ConstantExpression("append"))));
-					shared_ptr<FunctionCallExpression> callExp = shared_ptr<FunctionCallExpression>(new FunctionCallExpression(appendFunctionExp));
+					std::shared_ptr<FunctionCallExpression> callExp = std::shared_ptr<FunctionCallExpression>(new FunctionCallExpression(appendFunctionExp));
 					callExp->AddArgument(arrayExp);
 					callExp->AddArgument(valueExp);
 
@@ -873,10 +882,12 @@ void NutFunction::DecompileStatement( VMState& state ) const
 
 		case OP_CLOSURE:
 			{
-				shared_ptr<FunctionGeneratingExpression> func = shared_ptr<FunctionGeneratingExpression>(new FunctionGeneratingExpression(arg1, m_Functions[arg1]));
+				std::shared_ptr<FunctionGeneratingExpression> func = std::shared_ptr<FunctionGeneratingExpression>(new FunctionGeneratingExpression(arg1, m_Functions[arg1]));
 
-				for( vector<int>::const_iterator i = m_Functions[arg1].m_DefaultParams.begin(); i != m_Functions[arg1].m_DefaultParams.end(); ++i)
-					func->AddDefault(state.GetVar(*i));
+				#if SQ_VERSION_MAJOR > 2 || (SQ_VERSION_MAJOR == 2 && SQ_VERSION_MINOR > 2)
+					for( std::vector<int>::const_iterator i = m_Functions[arg1].m_DefaultParams.begin(); i != m_Functions[arg1].m_DefaultParams.end(); ++i)
+						func->AddDefault(state.GetVar(*i));
+				#endif
 
 				state.SetVar(arg0, func);
 			}
@@ -919,7 +930,7 @@ void NutFunction::DecompileStatement( VMState& state ) const
 				// Remove variables initialization used only for 
 				//while(!block->Statements().empty() && block->Statements().back()->GetType() == Stat_LocalVar)
 				//{
-				//	const shared_ptr<LocalVarInitStatement> var = static_pointer_cast<LocalVarInitStatement>(block->Statements().back());
+				//	const std::shared_ptr<LocalVarInitStatement> var = static_pointer_cast<LocalVarInitStatement>(block->Statements().back());
 
 				//	if (
 				//		(refExp->GetType() == Exp_LocalVariable && var->GetStackAddress() == (arg2 + 2) && var->GetEndAddress() > state.IP() && var->GetEndAddress() < loopEndIp) ||
@@ -960,10 +971,11 @@ void NutFunction::DecompileStatement( VMState& state ) const
 			}
 			break;
 
-
-		case OP_POSTFOREACH:
-			// Ignore - used always after OP_FOREACH for generator iteration
-			break;
+		#if SQ_VERSION_MAJOR > 2 || (SQ_VERSION_MAJOR == 2 && SQ_VERSION_MINOR > 2)
+			case OP_POSTFOREACH:
+				// Ignore - used always after OP_FOREACH for generator iteration
+				break;
+		#endif
 
 		case OP_DELEGATE:
 			state.SetVar(arg0, ExpressionPtr(new DelegateOperatorExpression(state.GetVar(arg2), state.GetVar(arg1))), true);
@@ -1006,7 +1018,7 @@ void NutFunction::DecompileStatement( VMState& state ) const
 					state.AtStack(arg0) =  ExpressionPtr();
 					std::string varName;
 
-					for( vector<NutFunction::LocalVarInfo>::const_iterator i = m_Locals.begin(); i != m_Locals.end(); ++i )
+					for( std::vector<NutFunction::LocalVarInfo>::const_iterator i = m_Locals.begin(); i != m_Locals.end(); ++i )
 						if (i->pos == arg0 && i->start_op == state.IP())
 						{
 							state.AtStack(arg0) = ExpressionPtr(new LocalVariableExpression(i->name));
@@ -1051,6 +1063,7 @@ void NutFunction::DecompileStatement( VMState& state ) const
 					attributes = state.GetVar(arg2);
 
 				state.SetVar(arg0, ExpressionPtr(new NewClassExpression(baseClass, attributes)));
+				// break;
 			}
 			break;
 
@@ -1080,7 +1093,7 @@ void NutFunction::DecompileStatement( VMState& state ) const
 				}
 				else
 				{
-					shared_ptr<ArrayIndexingExpression> derefExp = shared_ptr<ArrayIndexingExpression>(new ArrayIndexingExpression(objExp, keyExp));
+					std::shared_ptr<ArrayIndexingExpression> derefExp = std::shared_ptr<ArrayIndexingExpression>(new ArrayIndexingExpression(objExp, keyExp));
 					if (valueExp->GetType() == Exp_Function && derefExp->IsSimpleMemberDeref())
 					{
 						
@@ -1093,14 +1106,14 @@ void NutFunction::DecompileStatement( VMState& state ) const
 						}
 						else
 						{
-							shared_ptr<FunctionExpression> funcExp = static_pointer_cast<FunctionExpression>(valueExp);
+							std::shared_ptr<FunctionExpression> funcExp = static_pointer_cast<FunctionExpression>(valueExp);
 							funcExp->SetName(derefExp->ToFunctionNameString());
 							state.PushStatement(StatementPtr(new ExpressionStatement(funcExp)));
 						}
 					}
 					else if (valueExp->GetType() == Exp_NewClassExpression && derefExp->IsSimpleMemberDeref())
 					{
-						shared_ptr<NewClassExpression> classExp = static_pointer_cast<NewClassExpression>(valueExp);
+						std::shared_ptr<NewClassExpression> classExp = static_pointer_cast<NewClassExpression>(valueExp);
 						classExp->SetName(derefExp->ToString());
 						state.PushStatement(StatementPtr(new ExpressionStatement(classExp)));
 					}
@@ -1474,10 +1487,10 @@ void NutFunction::DecompileSwitchBlock( VMState& state ) const
 
 		if (condition->GetType() == Exp_Operator)
 		{
-			shared_ptr<OperatorExpression> operatorExpression = static_pointer_cast<OperatorExpression>(condition);
+			std::shared_ptr<OperatorExpression> operatorExpression = static_pointer_cast<OperatorExpression>(condition);
 			if (operatorExpression->GetOperatorType() == '==')
 			{
-				shared_ptr<BinaryOperatorExpression> comparisionOperator = static_pointer_cast<BinaryOperatorExpression>(condition);
+				std::shared_ptr<BinaryOperatorExpression> comparisionOperator = static_pointer_cast<BinaryOperatorExpression>(condition);
 				
 				if (!switchVariable)
 					switchVariable = comparisionOperator->GetArg1();
@@ -1568,7 +1581,7 @@ void NutFunction::PrintOpcode( std::ostream& out, int pos, const Instruction& op
 
 	out << "["; 
 	out << std::setw(3) << std::setfill('0') << pos << std::setfill(' ');
-	out << "]  " << codeName << spaces(14 - strlen(codeName));
+	out << "]  " << codeName << spaces(14 - static_cast<int>(strlen(codeName)));
 
 	out << std::setw(5) << (int)op.arg0 << "  ";
 
@@ -1587,10 +1600,12 @@ void NutFunction::PrintOpcode( std::ostream& out, int pos, const Instruction& op
 		case OP_LOADINT:
 			out << std::setw(5) << op.arg1;
 			break;
-
-		case OP_LOADFLOAT:
-			out << std::setw(5) << op.arg1_float;
-			break;
+		
+		#if SQ_VERSION_MAJOR > 2 || (SQ_VERSION_MAJOR == 2 && SQ_VERSION_MINOR > 2)
+			case OP_LOADFLOAT:
+				out << std::setw(5) << op.arg1_float;
+				break;
+		#endif
 
 		case OP_LOADBOOL:
 			out << "  " << (op.arg1 ? "true" : "false");
@@ -1644,7 +1659,7 @@ void NutFunction::GenerateFunctionSource( int n, std::ostream& out, const std::s
 		out << m_Parameters[i];
 		
 
-		int defaultIndex = i - (m_Parameters.size() - defaults.size());
+		int defaultIndex = static_cast<int>(i - (m_Parameters.size() - defaults.size()));
 		if (defaultIndex >= 0)
 		{
 			out << " = " << defaults[defaultIndex];
@@ -1700,11 +1715,12 @@ void NutFunction::GenerateBodySource( int n, std::ostream& out ) const
 
 	if (g_DebugMode)
 	{
-		out << indent(n) << "// Defaults:" << std::endl;
-		for( std::vector<int>::const_iterator i = m_DefaultParams.begin(); i != m_DefaultParams.end(); ++i)
-			out << indent(n) << "//\t" << *i << std::endl;
-		
-		out << std::endl;
+		#if SQ_VERSION_MAJOR > 2 || (SQ_VERSION_MAJOR == 2 && SQ_VERSION_MINOR > 2)
+			out << indent(n) << "// Defaults:" << std::endl;
+			for( std::vector<int>::const_iterator i = m_DefaultParams.begin(); i != m_DefaultParams.end(); ++i)
+				out << indent(n) << "//\t" << *i << std::endl;
+			out << std::endl;
+		#endif
 
 		out << indent(n) << "// Literals:" << std::endl;
 		for( std::vector<SqObject>::const_iterator i = m_Literals.begin(); i != m_Literals.end(); ++i)
@@ -1713,23 +1729,23 @@ void NutFunction::GenerateBodySource( int n, std::ostream& out ) const
 		out << std::endl;
 
 		out << indent(n) << "// Outer values:" << std::endl;
-		for( vector<OuterValueInfo>::const_iterator i = m_OuterValues.begin(); i != m_OuterValues.end(); ++i)
+		for( std::vector<OuterValueInfo>::const_iterator i = m_OuterValues.begin(); i != m_OuterValues.end(); ++i)
 			out << indent(n) << "//\t" << i->type << "  src=" << i->src << "  name=" << i->name << std::endl; 
 
 		out << std::endl;
 
 		out << indent(n) << "// Local identifiers:" << std::endl;
-		for(vector<NutFunction::LocalVarInfo>::const_reverse_iterator i = m_Locals.rbegin(); i != m_Locals.rend(); ++i)
+		for(std::vector<NutFunction::LocalVarInfo>::const_reverse_iterator i = m_Locals.rbegin(); i != m_Locals.rend(); ++i)
 		{
-			out << indent(n) << "//   -" << i->name << spaces(10 - i->name.size()) 
+			out << indent(n) << "//   -" << i->name << spaces(static_cast<int>(10 - i->name.size()) )
 				<< " // pos=" << i->pos << "  start=" << i->start_op << "  end=" << i->end_op << (i->foreachLoopState ? " foreach state" : "") << std::endl;
 		}
 
 		out << std::endl;
 		out << indent(n) << "// Instructions:" << std::endl;
 
-		int64_t currentLine = 0;
-		vector<LineInfo>::const_iterator lineInfo = m_LineInfos.begin();
+		WordT currentLine = 0;
+		std::vector<LineInfo>::const_iterator lineInfo = m_LineInfos.begin();
 
 		for(size_t i = 0; i < m_Instructions.size(); ++i)
 		{
@@ -1748,13 +1764,15 @@ void NutFunction::GenerateBodySource( int n, std::ostream& out ) const
 		out << indent(n) << "// Decompilation attempt:" << std::endl;
 	}
 
-	// Crate new state for decompiler virtual machine
+	// Create new state for decompiler virtual machine
 	VMState state(*this, m_StackSize);
 
+
 	// Set initial stack elements to local identifiers
-	for(vector<NutFunction::LocalVarInfo>::const_reverse_iterator i = m_Locals.rbegin(); i != m_Locals.rend(); ++i)	
+	for(std::vector<NutFunction::LocalVarInfo>::const_reverse_iterator i = m_Locals.rbegin(); i != m_Locals.rend(); ++i)	
 		if (i->start_op == 0 && !i->foreachLoopState)
 			state.AtStack(i->pos) = ExpressionPtr(new LocalVariableExpression(i->name));
+
 
 	// Decompiler loop
 	while(!state.EndOfInstructions())
